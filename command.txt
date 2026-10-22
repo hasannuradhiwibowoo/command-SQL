@@ -1,0 +1,664 @@
+PANDUAN PERINTAH SQL LENGKAP (ACUAN MYSQL 8.x)
+================================================
+
+Cakupan
+------
+Dokumen ini merangkum perintah SQL dan fungsi yang umum dipakai untuk
+membuat, mengubah, membaca, mengamankan, dan menghapus data/database.
+Contoh memakai MySQL 8.x. Sintaks tidak selalu sama pada PostgreSQL,
+SQL Server, Oracle, SQLite, atau versi MySQL lama. SQL sangat luas dan
+fitur khusus vendor terus bertambah, jadi tidak ada daftar universal yang
+benar-benar mencakup setiap ekstensi. Bagian ini mencakup perintah inti
+serta fungsi bawaan yang paling sering digunakan.
+
+Penanda contoh: nama_db, nama_tabel, nama_kolom, dan nilai adalah contoh;
+ganti sesuai kebutuhan. Akhiri perintah SQL dengan titik koma (;).
+
+0. MULAI MENGGUNAKAN MYSQL
+--------------------------
+mysql -u root -p
+  Membuka klien terminal MySQL dan meminta kata sandi.
+
+SHOW DATABASES;
+  Menampilkan database yang dapat dilihat oleh akun saat ini.
+
+USE nama_db;
+  Memilih database aktif untuk perintah berikutnya.
+
+SELECT VERSION();
+  Menampilkan versi server MySQL.
+
+SELECT DATABASE();
+  Menampilkan nama database yang sedang dipilih.
+
+SHOW TABLES;
+  Menampilkan tabel pada database aktif.
+
+DESCRIBE nama_tabel;
+  Menampilkan kolom, tipe data, dan informasi dasar tabel.
+
+SHOW CREATE TABLE nama_tabel;
+  Menampilkan pernyataan CREATE TABLE yang membentuk tabel tersebut.
+
+SHOW WARNINGS;
+  Menampilkan peringatan dari perintah terakhir.
+
+SHOW ERRORS;
+  Menampilkan kesalahan dari perintah terakhir.
+
+HELP 'SELECT';
+  Meminta bantuan sintaks dari klien MySQL, bila bantuan lokal tersedia.
+
+-- komentar satu baris
+/* komentar beberapa baris */
+  Komentar untuk memberi catatan; server tidak menjalankannya.
+
+1. TIPE DATA YANG SERING DIPAKAI
+--------------------------------
+Bilangan:
+  TINYINT, SMALLINT, MEDIUMINT, INT/INTEGER, BIGINT
+    Bilangan bulat; rentang tergantung ukuran dan atribut UNSIGNED.
+  DECIMAL(p,s)
+    Angka desimal presisi tetap; cocok untuk uang. p = total digit,
+    s = digit sesudah koma. Contoh: DECIMAL(12,2).
+  FLOAT, DOUBLE
+    Angka pecahan perkiraan; hindari untuk nilai uang yang harus presisi.
+
+Teks:
+  CHAR(n)              Teks panjang tetap.
+  VARCHAR(n)           Teks panjang berubah sampai batas n.
+  TINYTEXT, TEXT, MEDIUMTEXT, LONGTEXT
+    Teks panjang dengan kapasitas yang makin besar.
+  ENUM('A','B')        Salah satu nilai dari daftar yang ditentukan.
+  SET('A','B')         Nol atau beberapa nilai dari daftar yang ditentukan.
+
+Tanggal dan waktu:
+  DATE                 Tanggal.
+  TIME                 Jam/durasi waktu.
+  DATETIME             Tanggal dan waktu tanpa konversi zona waktu.
+  TIMESTAMP            Waktu yang dikonversi mengikuti zona waktu sesi.
+  YEAR                 Tahun.
+
+Lainnya:
+  BOOLEAN/BOOL         Alias TINYINT(1) di MySQL; 0 = false, 1 = true.
+  BINARY(n), VARBINARY(n), BLOB
+    Data biner; BLOB tersedia dalam beberapa ukuran.
+  JSON                 Data JSON yang divalidasi dan dapat diolah.
+
+2. DDL: MEMBUAT DAN MENGUBAH STRUKTUR
+-------------------------------------
+DDL (Data Definition Language) mengelola database, tabel, indeks, dan
+objek struktur lainnya.
+
+CREATE DATABASE nama_db;
+  Membuat database baru.
+
+CREATE DATABASE IF NOT EXISTS nama_db
+  CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_ai_ci;
+  Membuat database hanya jika belum ada dan mengatur karakter serta aturan
+  pembandingan teks. utf8mb4 mendukung Unicode penuh.
+
+ALTER DATABASE nama_db CHARACTER SET utf8mb4;
+  Mengubah pengaturan default database.
+
+DROP DATABASE nama_db;
+  Menghapus database beserta seluruh objek dan datanya secara permanen.
+
+DROP DATABASE IF EXISTS nama_db;
+  Menghapus database jika ada; tetap destruktif.
+
+CREATE TABLE nama_tabel (
+  id BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
+  nama VARCHAR(100) NOT NULL,
+  email VARCHAR(255) UNIQUE,
+  dibuat_pada TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  PRIMARY KEY (id)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+  Membuat tabel dengan kolom, kunci utama, nilai otomatis, batasan unik,
+  waktu default, dan mesin transaksi InnoDB.
+
+CREATE TABLE tabel_baru LIKE tabel_lama;
+  Membuat tabel dengan definisi dan indeks seperti tabel lama; tidak
+  menyalin baris data.
+
+CREATE TABLE arsip AS SELECT * FROM sumber;
+  Membuat tabel dari hasil SELECT; tipe indeks dan batasan tidak selalu
+  ikut tersalin.
+
+CREATE TEMPORARY TABLE nama_sementara (
+  id INT PRIMARY KEY,
+  catatan VARCHAR(200)
+);
+  Membuat tabel sementara yang tersedia hanya selama sesi koneksi.
+
+ALTER TABLE nama_tabel ADD COLUMN status VARCHAR(20) DEFAULT 'aktif';
+  Menambahkan kolom.
+
+ALTER TABLE nama_tabel DROP COLUMN status;
+  Menghapus kolom beserta nilainya secara permanen.
+
+ALTER TABLE nama_tabel MODIFY COLUMN nama VARCHAR(150) NOT NULL;
+  Mengubah tipe atau atribut kolom di MySQL.
+
+ALTER TABLE nama_tabel CHANGE COLUMN nama nama_lengkap VARCHAR(150);
+  Mengganti nama kolom dan sekaligus mendefinisikan ulang tipenya.
+
+ALTER TABLE nama_tabel RENAME COLUMN nama_lengkap TO nama;
+  Mengganti nama kolom pada MySQL 8.x.
+
+ALTER TABLE nama_tabel RENAME TO tabel_arsip;
+  Mengganti nama tabel.
+
+ALTER TABLE nama_tabel ENGINE=InnoDB;
+  Mengubah mesin penyimpanan tabel.
+
+DROP TABLE nama_tabel;
+  Menghapus tabel beserta seluruh datanya secara permanen.
+
+DROP TABLE IF EXISTS nama_tabel;
+  Menghapus tabel jika tersedia.
+
+TRUNCATE TABLE nama_tabel;
+  Menghapus semua baris dengan cepat dan mengatur ulang AUTO_INCREMENT.
+  Perintah ini bukan pengganti DELETE untuk penghapusan bersyarat.
+
+Batasan/constraint:
+  PRIMARY KEY (id)
+    Menetapkan pengenal unik dan tidak NULL untuk setiap baris.
+  UNIQUE (email)
+    Melarang nilai duplikat (MySQL mengizinkan beberapa NULL).
+  NOT NULL
+    Mewajibkan kolom memiliki nilai.
+  DEFAULT 'aktif'
+    Memberi nilai otomatis ketika INSERT tidak mengisi kolom.
+  CHECK (umur >= 0)
+    Memastikan kondisi nilai terpenuhi (ditegakkan pada MySQL 8.0.16+).
+  FOREIGN KEY (pelanggan_id) REFERENCES pelanggan(id)
+    Menjaga hubungan agar nilai anak merujuk baris induk yang ada.
+  ON DELETE CASCADE / ON UPDATE CASCADE
+    Menghapus/memperbarui baris anak otomatis ketika kunci induk berubah.
+
+Contoh relasi:
+CREATE TABLE pesanan (
+  id BIGINT UNSIGNED NOT NULL AUTO_INCREMENT PRIMARY KEY,
+  pelanggan_id BIGINT UNSIGNED NOT NULL,
+  total DECIMAL(12,2) NOT NULL CHECK (total >= 0),
+  FOREIGN KEY (pelanggan_id) REFERENCES pelanggan(id)
+    ON UPDATE CASCADE ON DELETE RESTRICT
+);
+  RESTRICT menolak penghapusan pelanggan yang masih memiliki pesanan.
+
+CREATE INDEX idx_nama ON pelanggan(nama);
+  Membuat indeks untuk membantu pencarian/pengurutan kolom.
+
+CREATE UNIQUE INDEX idx_email ON pelanggan(email);
+  Membuat indeks yang sekaligus melarang duplikasi nilai non-NULL.
+
+CREATE FULLTEXT INDEX idx_artikel ON artikel(judul, isi);
+  Membuat indeks pencarian teks penuh untuk kolom teks yang didukung.
+
+CREATE SPATIAL INDEX idx_lokasi ON tempat(koordinat);
+  Membuat indeks untuk operasi data spasial yang didukung.
+
+DROP INDEX idx_nama ON pelanggan;
+  Menghapus indeks bernama.
+
+CREATE VIEW ringkasan AS SELECT id, nama FROM pelanggan;
+  Membuat tampilan tersimpan yang bertindak seperti tabel virtual.
+
+CREATE OR REPLACE VIEW ringkasan AS SELECT id, nama FROM pelanggan;
+  Membuat tampilan atau mengganti definisinya jika sudah ada.
+
+DROP VIEW ringkasan;
+  Menghapus tampilan, bukan tabel sumbernya.
+
+CREATE INDEX, VIEW, PROCEDURE, FUNCTION, TRIGGER, EVENT
+  Membuat objek database terkait. Contoh fungsi, prosedur, trigger, dan
+  event terdapat di bagian khusus di bawah.
+
+3. DML: MENAMBAH, MENGUBAH, DAN MENGHAPUS DATA
+----------------------------------------------
+DML (Data Manipulation Language) mengubah baris dalam tabel.
+
+INSERT INTO pelanggan (nama, email)
+VALUES ('Sari', 'sari@example.test');
+  Menambahkan satu baris. Sebutkan kolom agar urutan jelas.
+
+INSERT INTO pelanggan (nama, email)
+VALUES ('Budi', 'budi@example.test'), ('Dina', 'dina@example.test');
+  Menambahkan beberapa baris dalam satu perintah.
+
+INSERT INTO pelanggan (nama, email)
+SELECT nama, email FROM pelanggan_lama;
+  Menyalin hasil query ke tabel tujuan.
+
+INSERT INTO pelanggan (id, nama, email)
+VALUES (1, 'Sari', 'sari@example.test')
+ON DUPLICATE KEY UPDATE nama=VALUES(nama);
+  Menambahkan baris atau memperbarui baris jika terjadi benturan kunci.
+  Perhatikan bahwa VALUES() pada klausa ini ditandai deprecated di versi
+  MySQL baru; gunakan alias baris baru sesuai dokumentasi versi server.
+
+REPLACE INTO pelanggan (id, nama, email)
+VALUES (1, 'Sari', 'sari@example.test');
+  Mengganti baris yang berbenturan pada PRIMARY/UNIQUE KEY (secara konsep
+  dapat menghapus lalu menyisipkan kembali; gunakan dengan hati-hati).
+
+UPDATE pelanggan SET nama='Sari Putri' WHERE id=1;
+  Mengubah kolom pada baris yang cocok. WHERE mencegah perubahan semua baris.
+
+UPDATE produk SET harga=harga*1.05 WHERE kategori='Buku';
+  Memperbarui harga secara perhitungan untuk baris yang cocok.
+
+UPDATE tujuan t JOIN sumber s ON t.id=s.id
+SET t.status=s.status;
+  Memperbarui tabel berdasarkan kecocokan tabel lain (sintaks MySQL).
+
+DELETE FROM pelanggan WHERE id=1;
+  Menghapus baris yang cocok.
+
+DELETE FROM pelanggan WHERE status='nonaktif' LIMIT 100;
+  Menghapus paling banyak 100 baris yang cocok dalam satu perintah.
+
+DELETE FROM pelanggan;
+  Menghapus semua baris tetapi membiarkan struktur tabel tetap ada.
+  Sebelum menjalankan, pastikan memang tidak memerlukan WHERE.
+
+4. DQL: MEMBACA DATA DENGAN SELECT
+----------------------------------
+SELECT kolom1, kolom2 FROM nama_tabel;
+  Membaca kolom tertentu. Hindari SELECT * untuk query aplikasi yang stabil.
+
+SELECT DISTINCT kota FROM pelanggan;
+  Menghilangkan baris hasil yang duplikat.
+
+SELECT nama AS nama_pelanggan FROM pelanggan;
+  Memberi alias pada kolom atau tabel. Alias memudahkan hasil dibaca.
+
+SELECT * FROM pelanggan WHERE status='aktif';
+  Memilih baris yang memenuhi kondisi.
+
+Kondisi yang umum:
+  =, <>, !=, <, <=, >, >=       Perbandingan.
+  AND, OR, NOT                  Menggabungkan/membalik kondisi.
+  BETWEEN 10 AND 20             Memeriksa rentang inklusif.
+  IN ('A','B')                  Memeriksa kecocokan dengan daftar nilai.
+  LIKE 'Sa%'                    Pola teks: % = banyak karakter, _ = satu.
+  IS NULL / IS NOT NULL         Memeriksa NULL; jangan gunakan = NULL.
+  REGEXP_LIKE(teks, pola)       Mencocokkan pola ekspresi reguler.
+
+SELECT * FROM pelanggan
+WHERE kota IN ('Jakarta','Bandung') AND email IS NOT NULL;
+  Contoh penggunaan kondisi gabungan.
+
+SELECT * FROM pelanggan ORDER BY nama ASC, id DESC;
+  Mengurutkan hasil naik (ASC) atau turun (DESC).
+
+SELECT * FROM pelanggan LIMIT 20;
+  Membatasi jumlah baris hasil.
+
+SELECT * FROM pelanggan LIMIT 20 OFFSET 40;
+  Melewati 40 baris lalu mengambil 20; umum untuk pagination.
+
+SELECT * FROM pelanggan WHERE id > 100 ORDER BY id LIMIT 20;
+  Pagination berbasis kunci sering lebih efisien untuk kumpulan besar.
+
+SELECT kota, COUNT(*) AS jumlah FROM pelanggan
+GROUP BY kota HAVING COUNT(*) > 5;
+  Mengelompokkan baris dan hanya menampilkan grup dengan jumlah di atas 5.
+  WHERE menyaring baris sebelum pengelompokan; HAVING menyaring grup.
+
+JOIN:
+  INNER JOIN   Hanya baris yang cocok di kedua sisi.
+  LEFT JOIN    Semua baris kiri dan pasangan kanan jika cocok; selain itu NULL.
+  RIGHT JOIN   Semua baris kanan dan pasangan kiri jika cocok.
+  CROSS JOIN   Semua kombinasi baris kiri dan kanan.
+  SELF JOIN    Tabel digabungkan dengan dirinya memakai alias berbeda.
+
+SELECT p.id, p.nama, o.id AS pesanan_id
+FROM pelanggan AS p
+LEFT JOIN pesanan AS o ON o.pelanggan_id=p.id;
+  Contoh menggabungkan pelanggan dan pesanan.
+
+SELECT nama FROM pelanggan
+UNION
+SELECT nama FROM calon_pelanggan;
+  Menggabungkan hasil dengan menghapus duplikat. UNION ALL mempertahankan
+  duplikat dan biasanya lebih cepat.
+
+SELECT * FROM produk WHERE harga > (SELECT AVG(harga) FROM produk);
+  Subquery: query di dalam query untuk menghasilkan nilai/kumpulan data.
+
+WITH aktif AS (
+  SELECT id, nama FROM pelanggan WHERE status='aktif'
+)
+SELECT * FROM aktif;
+  CTE (Common Table Expression) memberi nama sementara pada hasil query.
+
+WITH RECURSIVE hierarki AS (
+  SELECT id, induk_id, nama FROM kategori WHERE induk_id IS NULL
+  UNION ALL
+  SELECT k.id, k.induk_id, k.nama
+  FROM kategori k JOIN hierarki h ON k.induk_id=h.id
+)
+SELECT * FROM hierarki;
+  CTE rekursif untuk hierarki atau urutan bertingkat.
+
+Fungsi jendela:
+SELECT nama, departemen, gaji,
+  ROW_NUMBER() OVER (PARTITION BY departemen ORDER BY gaji DESC) AS urutan
+FROM pegawai;
+  Menghitung nilai lintas baris terkait tanpa menggabungkannya menjadi satu
+  baris per grup. Fungsi lain: RANK, DENSE_RANK, LAG, LEAD, SUM OVER.
+
+SELECT ... FOR UPDATE;
+  Mengunci baris terpilih untuk perubahan dalam transaksi InnoDB.
+  Gunakan bersama transaksi dan kondisi yang tepat.
+
+5. FUNGSI BAWAAN YANG UMUM
+--------------------------
+Fungsi teks:
+  CONCAT(a,b,...)             Menggabungkan teks.
+  CONCAT_WS(pemisah,a,b,...)  Menggabungkan teks dengan pemisah.
+  LENGTH(teks)                Panjang dalam byte.
+  CHAR_LENGTH(teks)           Panjang dalam karakter.
+  LOWER(teks), UPPER(teks)    Mengubah huruf kecil/besar.
+  TRIM(teks)                  Menghapus spasi tepi; LTRIM/RTRIM satu sisi.
+  SUBSTRING(teks,pos,len)     Mengambil sebagian teks.
+  LEFT(teks,n), RIGHT(teks,n) Mengambil n karakter sisi kiri/kanan.
+  REPLACE(teks,cari,ganti)    Mengganti semua kemunculan teks.
+  LOCATE(cari,teks)           Posisi teks yang dicari; 0 bila tidak ada.
+  LPAD(teks,n,pad), RPAD(...) Menambahkan karakter sampai panjang n.
+  REPEAT(teks,n)              Mengulang teks n kali.
+  REVERSE(teks)               Membalik urutan karakter.
+  FORMAT(angka,digit)         Memformat angka untuk tampilan; hasil berupa teks.
+
+Fungsi angka:
+  ABS(x)                      Nilai absolut.
+  ROUND(x,n)                  Membulatkan ke n digit desimal.
+  CEIL(x), CEILING(x)         Membulatkan ke atas ke bilangan bulat.
+  FLOOR(x)                    Membulatkan ke bawah.
+  TRUNCATE(x,n)               Memotong ke n digit desimal.
+  MOD(a,b) atau a % b         Sisa pembagian.
+  POWER(a,b), SQRT(x)         Pangkat dan akar kuadrat.
+  SIGN(x)                     -1, 0, atau 1 menurut tanda angka.
+  RAND()                      Angka acak pecahan antara 0 dan 1.
+
+Fungsi tanggal/waktu:
+  NOW(), CURRENT_TIMESTAMP     Tanggal dan waktu saat ini.
+  CURDATE(), CURRENT_DATE      Tanggal hari ini.
+  CURTIME(), CURRENT_TIME      Waktu saat ini.
+  DATE(x), TIME(x)             Mengambil bagian tanggal/waktu.
+  YEAR(x), MONTH(x), DAY(x)    Mengambil tahun, bulan, hari.
+  HOUR(x), MINUTE(x), SECOND(x) Mengambil komponen waktu.
+  DAYNAME(x), MONTHNAME(x)     Nama hari dan bulan mengikuti locale.
+  DATEDIFF(a,b)                Selisih tanggal dalam hari (a dikurangi b).
+  TIMESTAMPDIFF(unit,a,b)      Selisih dalam unit seperti DAY atau MONTH.
+  DATE_ADD(tanggal, INTERVAL 7 DAY) Menambah interval.
+  DATE_SUB(tanggal, INTERVAL 1 MONTH) Mengurangi interval.
+  LAST_DAY(tanggal)            Hari terakhir bulan tersebut.
+  DATE_FORMAT(tanggal,format)  Mengubah tanggal menjadi teks berformat.
+  STR_TO_DATE(teks,format)     Mengurai teks menjadi tanggal.
+  UTC_TIMESTAMP()              Waktu saat ini dalam UTC.
+
+Fungsi agregat (umumnya bersama GROUP BY):
+  COUNT(*)                     Menghitung baris.
+  COUNT(kolom)                 Menghitung nilai non-NULL.
+  COUNT(DISTINCT kolom)        Menghitung nilai berbeda non-NULL.
+  SUM(kolom)                   Menjumlahkan nilai.
+  AVG(kolom)                   Menghitung rata-rata.
+  MIN(kolom), MAX(kolom)       Nilai minimum dan maksimum.
+  GROUP_CONCAT(kolom)          Menggabungkan nilai grup menjadi teks.
+
+NULL dan kondisi:
+  IF(kondisi,a,b)              Memilih a jika benar, selain itu b.
+  IFNULL(a,b)                  Mengganti NULL dengan b.
+  COALESCE(a,b,...)            Mengambil ekspresi pertama yang bukan NULL.
+  NULLIF(a,b)                  Menghasilkan NULL jika a sama dengan b.
+  CASE WHEN ... THEN ... ELSE ... END
+                               Percabangan kondisi di dalam ekspresi.
+  GREATEST(a,b,...)            Nilai terbesar dari daftar.
+  LEAST(a,b,...)               Nilai terkecil dari daftar.
+
+Konversi dan JSON:
+  CAST(nilai AS tipe)          Mengonversi nilai ke tipe tertentu.
+  CONVERT(nilai, tipe)         Bentuk konversi MySQL.
+  JSON_OBJECT('k',v)           Membentuk objek JSON.
+  JSON_ARRAY(v1,v2)            Membentuk array JSON.
+  JSON_EXTRACT(doc,'$.k')      Mengambil nilai berdasarkan jalur JSON.
+  doc->'$.k'                   Operator singkat JSON_EXTRACT.
+  doc->>'$.k'                  Mengambil nilai JSON sebagai teks.
+  JSON_SET(doc,'$.k',v)        Menambah/mengganti nilai jalur JSON.
+  JSON_REMOVE(doc,'$.k')       Menghapus nilai jalur JSON.
+  JSON_CONTAINS(doc,cari)      Memeriksa keberadaan nilai/objek JSON.
+  JSON_VALID(teks)             Memeriksa apakah teks berformat JSON valid.
+
+Hash/encoding:
+  SHA2(teks,256)               Hash SHA-2 untuk checksum/identifikasi.
+  MD5(teks)                    Hash lama; jangan dipakai untuk password.
+  HEX(data), UNHEX(teks)       Konversi data ke/dari representasi heksadesimal.
+  Untuk password gunakan mekanisme hash aplikasi yang dirancang khusus,
+  bukan menyimpan kata sandi polos atau MD5/SHA biasa.
+
+6. DCL: AKUN DAN HAK AKSES
+--------------------------
+DCL (Data Control Language) mengatur akun dan izin. Jalankan dengan akun
+administrator dan berikan izin sesedikit yang dibutuhkan.
+
+CREATE USER 'app'@'localhost' IDENTIFIED BY 'GantiDenganKataSandiKuat';
+  Membuat akun yang dapat terhubung dari host localhost.
+
+ALTER USER 'app'@'localhost' IDENTIFIED BY 'KataSandiBaruYangKuat';
+  Mengubah kata sandi/metode autentikasi akun.
+
+GRANT SELECT, INSERT, UPDATE, DELETE ON nama_db.* TO 'app'@'localhost';
+  Memberi izin baca dan ubah data pada seluruh tabel database tersebut.
+
+GRANT ALL PRIVILEGES ON nama_db.* TO 'admin_db'@'localhost';
+  Memberi semua hak pada cakupan database; hindari memberi lebih dari perlu.
+
+SHOW GRANTS FOR 'app'@'localhost';
+  Menampilkan izin yang dimiliki akun.
+
+REVOKE DELETE ON nama_db.* FROM 'app'@'localhost';
+  Mencabut izin DELETE.
+
+DROP USER 'app'@'localhost';
+  Menghapus akun database.
+
+FLUSH PRIVILEGES;
+  Memuat ulang tabel hak akses. Umumnya tidak dibutuhkan setelah GRANT,
+  REVOKE, CREATE USER, atau DROP USER.
+
+Hak umum: SELECT, INSERT, UPDATE, DELETE, CREATE, ALTER, DROP, INDEX,
+REFERENCES, EXECUTE, CREATE VIEW, SHOW VIEW, TRIGGER, EVENT, PROCESS,
+CREATE USER, dan ALL PRIVILEGES. Nama/cakupan izin bergantung versi.
+
+7. TCL: TRANSAKSI
+-----------------
+TCL (Transaction Control Language) mengendalikan transaksi. InnoDB
+mendukung transaksi; beberapa DDL melakukan commit implisit.
+
+START TRANSACTION;
+  Memulai transaksi.
+
+COMMIT;
+  Menetapkan perubahan transaksi secara permanen.
+
+ROLLBACK;
+  Membatalkan perubahan transaksi yang belum di-commit.
+
+SAVEPOINT titik_a;
+  Membuat titik pemulihan di dalam transaksi.
+
+ROLLBACK TO SAVEPOINT titik_a;
+  Membatalkan perubahan setelah savepoint tersebut.
+
+RELEASE SAVEPOINT titik_a;
+  Menghapus savepoint.
+
+SET autocommit = 0;
+  Menonaktifkan commit otomatis untuk sesi; perubahan perlu COMMIT.
+
+SET autocommit = 1;
+  Mengaktifkan kembali commit otomatis.
+
+Contoh:
+START TRANSACTION;
+UPDATE rekening SET saldo=saldo-100 WHERE id=1;
+UPDATE rekening SET saldo=saldo+100 WHERE id=2;
+COMMIT;
+  Kedua perubahan disimpan sebagai satu kesatuan; gunakan ROLLBACK jika
+  proses harus dibatalkan sebelum COMMIT.
+
+8. VIEW, PROSEDUR, FUNGSI, TRIGGER, EVENT
+-----------------------------------------
+DELIMITER //
+  Perintah klien MySQL untuk mengubah penanda akhir perintah sementara,
+  diperlukan ketika definisi rutin berisi titik koma. Bukan SQL server.
+
+Prosedur tersimpan:
+DELIMITER //
+CREATE PROCEDURE daftar_pelanggan()
+BEGIN
+  SELECT id, nama FROM pelanggan;
+END//
+DELIMITER ;
+  Membuat prosedur berisi beberapa perintah yang dapat dipanggil ulang.
+
+CALL daftar_pelanggan();
+  Menjalankan prosedur.
+
+DROP PROCEDURE IF EXISTS daftar_pelanggan;
+  Menghapus prosedur.
+
+Fungsi tersimpan:
+DELIMITER //
+CREATE FUNCTION tambah_pajak(harga DECIMAL(10,2))
+RETURNS DECIMAL(10,2)
+DETERMINISTIC
+RETURN harga * 1.11//
+DELIMITER ;
+  Membuat fungsi yang mengembalikan satu nilai dan dapat dipakai di query.
+
+SELECT tambah_pajak(100.00);
+  Memanggil fungsi tersimpan.
+
+DROP FUNCTION IF EXISTS tambah_pajak;
+  Menghapus fungsi.
+
+Trigger:
+DELIMITER //
+CREATE TRIGGER sebelum_pelanggan_update
+BEFORE UPDATE ON pelanggan
+FOR EACH ROW
+BEGIN
+  SET NEW.diubah_pada = CURRENT_TIMESTAMP;
+END//
+DELIMITER ;
+  Menjalankan logika otomatis sebelum/sesudah INSERT, UPDATE, atau DELETE.
+  OLD mengacu nilai sebelumnya, NEW nilai baru (ketersediaan bergantung event).
+
+DROP TRIGGER IF EXISTS sebelum_pelanggan_update;
+  Menghapus trigger.
+
+Event Scheduler:
+SET GLOBAL event_scheduler = ON;
+  Mengaktifkan scheduler (memerlukan izin dan konfigurasi server).
+
+CREATE EVENT hapus_log_lama
+ON SCHEDULE EVERY 1 DAY
+DO DELETE FROM log_aplikasi WHERE dibuat_pada < NOW() - INTERVAL 90 DAY;
+  Menjadwalkan perintah berulang. Pastikan zona waktu, hak, dan dampak
+  penghapusan sudah diperiksa.
+
+ALTER EVENT hapus_log_lama DISABLE;
+  Menonaktifkan event.
+
+DROP EVENT IF EXISTS hapus_log_lama;
+  Menghapus event.
+
+9. PEMERIKSAAN, PEMELIHARAAN, DAN ADMINISTRASI
+---------------------------------------------
+SHOW COLUMNS FROM nama_tabel;
+  Menampilkan definisi kolom.
+
+SHOW INDEX FROM nama_tabel;
+  Menampilkan indeks tabel.
+
+SHOW TABLE STATUS LIKE 'nama_tabel';
+  Menampilkan informasi mesin, ukuran, dan status tabel.
+
+EXPLAIN SELECT * FROM pelanggan WHERE email='sari@example.test';
+  Menampilkan rencana eksekusi query agar pencarian lambat dapat dianalisis.
+
+EXPLAIN ANALYZE SELECT * FROM pelanggan WHERE id=1;
+  Menjalankan query dan melaporkan rencana serta waktu aktual (MySQL 8.0.18+).
+
+ANALYZE TABLE nama_tabel;
+  Memperbarui statistik indeks yang digunakan optimizer.
+
+CHECK TABLE nama_tabel;
+  Memeriksa tabel untuk masalah yang dapat dideteksi.
+
+OPTIMIZE TABLE nama_tabel;
+  Mengatur ulang/mengefisienkan penyimpanan tabel sesuai mesin; dapat
+  memakai waktu dan mengunci sumber daya.
+
+REPAIR TABLE nama_tabel;
+  Mencoba memperbaiki tabel untuk mesin yang mendukungnya; InnoDB umumnya
+  dipulihkan melalui mekanisme InnoDB, bukan perintah ini.
+
+Kumpulan opsi server (cakupan dapat berbeda):
+  SET SESSION nama_variabel = nilai;
+    Mengubah pengaturan untuk koneksi saat ini.
+  SET GLOBAL nama_variabel = nilai;
+    Mengubah pengaturan global saat runtime; biasanya perlu hak admin dan
+    sebagian perubahan tidak bertahan setelah server restart.
+  SHOW VARIABLES LIKE 'nama%';
+    Mencari pengaturan server/sesi.
+  SHOW STATUS LIKE 'nama%';
+    Melihat statistik runtime.
+
+Mencadangkan/memulihkan (program terminal, bukan perintah SQL):
+  mysqldump -u pengguna -p --databases nama_db > cadangan.sql
+    Mengekspor skema dan data ke berkas SQL.
+  mysql -u pengguna -p nama_db < cadangan.sql
+    Menjalankan berkas SQL untuk memulihkan data ke database.
+  Uji pemulihan cadangan secara berkala; simpan cadangan secara aman.
+
+10. URUTAN PRAKTIS DARI NOL SAMPAI SELESAI
+------------------------------------------
+1) CREATE DATABASE nama_db;
+2) USE nama_db;
+3) CREATE TABLE ...;             Buat tabel dan batasannya.
+4) CREATE INDEX ...;             Tambahkan indeks sesuai kebutuhan pencarian.
+5) INSERT INTO ... VALUES ...;   Masukkan data.
+6) SELECT ...;                   Baca dan periksa hasil.
+7) START TRANSACTION;            Mulai transaksi untuk perubahan terkait.
+8) UPDATE/DELETE ... WHERE ...;  Ubah/hapus data dengan kondisi yang tepat.
+9) COMMIT; atau ROLLBACK;        Simpan atau batalkan transaksi.
+10) CREATE USER dan GRANT ...;   Beri aplikasi hak minimum yang diperlukan.
+11) mysqldump ...                Buat cadangan sebelum perubahan besar.
+12) DROP TABLE/DATABASE ...;     Hapus hanya jika benar-benar dimaksudkan.
+
+11. CATATAN KESELAMATAN DAN PRAKTIK BAIK
+---------------------------------------
+- Buat cadangan sebelum DROP, TRUNCATE, migrasi skema, atau UPDATE/DELETE
+  massal. Operasi destruktif dapat menghilangkan data permanen.
+- Jalankan SELECT dengan kondisi yang sama terlebih dahulu untuk memastikan
+  baris sasaran UPDATE/DELETE. Periksa jumlah baris yang akan terdampak.
+- Selalu gunakan WHERE saat perubahan hanya untuk sebagian baris.
+- Aplikasi sebaiknya memakai prepared statement/parameter binding; jangan
+  menyusun query dengan menggabungkan input pengguna ke dalam teks SQL.
+- Jangan memberi aplikasi akun root atau GRANT ALL tanpa kebutuhan.
+- Simpan kata sandi di secret manager/konfigurasi aman, bukan di berkas SQL
+  yang dibagikan atau repositori.
+- Indeks mempercepat sebagian baca tetapi memakai ruang dan memperlambat
+  penulisan; ukur kebutuhan sebelum menambah banyak indeks.
+- NULL berarti nilai tidak diketahui/tidak tersedia, bukan nol atau teks kosong.
+- Urutan umum SELECT: WITH, SELECT, FROM/JOIN, WHERE, GROUP BY, HAVING,
+  ORDER BY, LIMIT.
+- Gunakan dokumentasi MySQL untuk fitur, fungsi, tipe, dan hak akses spesifik
+  versi: https://dev.mysql.com/doc/refman/8.0/en/
+ 
